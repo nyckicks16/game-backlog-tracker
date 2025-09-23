@@ -1,0 +1,37 @@
+{
+  "name": "game-backlog-tracker",
+  "version": "1.0.0",
+  "description": "A web application for managing your video game backlog, tracking progress, and maintaining ratings/reviews.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "start": "npm run start --prefix backend",
+    "lint": "concurrently \"npm run lint --prefix frontend\" \"npm run lint --prefix backend\"",
+    "lint:fix": "concurrently \"npm run lint:fix --prefix frontend\" \"npm run lint:fix --prefix backend\"",
+    "format": "concurrently \"npm run format --prefix frontend\" \"npm run format --prefix backend\"",
+    "db:studio": "npm run db:studio --prefix backend",
+    "db:migrate": "npm run db:migrate --prefix backend",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "keywords": [
+    "games",
+    "backlog",
+    "tracker",
+    "react",
+    "express",
+    "prisma"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
