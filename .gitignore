@@ -57,3 +57,14 @@ Thumbs.db
 # Temporary folders
 tmp/
 temp/
+
+# Documentation (exclude all except README.md)
+docs/
+backend/docs/
+frontend/UX_DESIGN_REVIEW.md
+*.pdf
+authentication-mockup.html
+
+# Keep only essential README files
+!README.md
+!*/README.md

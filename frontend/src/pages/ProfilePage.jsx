@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthProvider';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileTabs from '../components/profile/ProfileTabs';
