@@ -11,13 +11,48 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  username  String   @unique
-  firstName String?
-  lastName  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  username     String   @unique
+  firstName    String?
+  lastName     String?
+  
+  // Google OAuth fields (User Story #8)
+  googleId     String?  @unique
+  profilePicture String?
+  provider     String   @default("google")
+  
+  // Profile Management fields (User Story #11)
+  displayName  String?
+  bio          String?
+  avatarUrl    String?
+  theme        String   @default("dark")
+  preferences  String?  // JSON string for user preferences
+  
+  // Authentication tracking
+  lastLogin    DateTime?
+  refreshToken String?
+  
+  // Failed login tracking (User Story #10)
+  failedLoginAttempts Int      @default(0)
+  lockedUntil         DateTime?
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("users")
+}
+
+// Token blacklist for revoked tokens (User Story #10)
+model TokenBlacklist {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int?
+  type      String   // 'access' or 'refresh'
+  expiresAt DateTime
+  reason    String?  // Reason for blacklisting
+  createdAt DateTime @default(now())
+
+  @@map("token_blacklist")
 }
