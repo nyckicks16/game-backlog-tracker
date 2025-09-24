@@ -69,12 +69,14 @@ const UserProfile = ({ className = '' }) => {
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
         className={clsx(
-          'flex items-center gap-2 p-2 rounded-lg',
-          'text-slate-200 hover:text-white',
-          'hover:bg-slate-800/50',
-          'focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-gray-900',
-          'transition-all duration-200',
-          isOpen && 'bg-slate-800/50'
+          'flex items-center gap-3 px-4 py-3 rounded-lg font-medium',
+          'text-slate-300 hover:text-white',
+          'hover:bg-gradient-to-r hover:from-slate-700/80 hover:to-slate-600/80',
+          'border border-transparent hover:border-slate-500/30',
+          'hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-400/50',
+          'transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02]',
+          'group relative overflow-hidden',
+          isOpen && 'bg-gradient-to-r from-slate-700/80 to-slate-600/80 border-slate-500/30 shadow-md -translate-y-0.5 scale-[1.02] text-white'
         )}
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -118,8 +120,8 @@ const UserProfile = ({ className = '' }) => {
           ref={dropdownRef}
           className={clsx(
             'absolute right-0 top-full mt-2 z-50',
-            'w-60', // 240px width as specified
-            'bg-slate-800 border border-slate-700 rounded-lg shadow-xl', // Dark surface bg with 8px shadow
+            'w-64', // Slightly wider for better content
+            'bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-xl shadow-2xl', // Enhanced background and shadow
             'py-2',
             'animate-in fade-in slide-in-from-top-2 duration-200'
           )}
@@ -128,7 +130,7 @@ const UserProfile = ({ className = '' }) => {
           aria-labelledby="user-menu-button"
         >
           {/* User Info Header */}
-          <div className="px-4 py-3 border-b border-slate-700">
+          <div className="px-4 py-4 border-b border-slate-600/50 bg-slate-800/50 rounded-t-xl">
             <div className="flex items-center gap-3">
               {user.profilePicture ? (
                 <img
@@ -154,7 +156,7 @@ const UserProfile = ({ className = '' }) => {
           </div>
 
           {/* Menu Items */}
-          <div className="py-1">
+          <div className="py-1 px-2">
             <MenuItem
               icon={UserIcon}
               label="Profile"
@@ -183,7 +185,7 @@ const UserProfile = ({ className = '' }) => {
               }}
             />
             
-            <div className="my-1 border-t border-slate-700"></div>
+            <div className="my-2 border-t border-slate-600/50"></div>
             
             <MenuItem
               icon={ArrowRightOnRectangleIcon}
@@ -192,7 +194,7 @@ const UserProfile = ({ className = '' }) => {
                 setIsOpen(false);
                 logout();
               }}
-              className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              className="text-red-400 hover:text-white hover:bg-gradient-to-r hover:from-red-600/90 hover:to-red-700/90 hover:border-red-500/50 hover:shadow-lg"
             />
           </div>
         </div>
@@ -209,16 +211,19 @@ const MenuItem = ({ icon: Icon, label, onClick, className = '' }) => {
     <button
       onClick={onClick}
       className={clsx(
-        'flex items-center gap-3 w-full px-4 py-2 text-sm',
-        'text-slate-300 hover:text-white hover:bg-slate-700/50',
-        'focus:outline-none focus:bg-slate-700/50',
-        'transition-colors duration-150',
+        'flex items-center gap-3 w-full px-4 py-3 text-sm rounded-lg mb-1',
+        'text-slate-300 hover:text-white font-medium',
+        'hover:bg-gradient-to-r hover:from-slate-700/80 hover:to-slate-600/80',
+        'border border-transparent hover:border-slate-500/30',
+        'hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-400/50',
+        'transition-all duration-200 hover:-translate-y-0.5 hover:scale-[1.02]',
+        'group relative overflow-hidden',
         className
       )}
       role="menuitem"
     >
-      <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-      <span>{label}</span>
+      <Icon className="w-5 h-5 flex-shrink-0 text-slate-400 group-hover:text-slate-100 transition-colors duration-200" aria-hidden="true" />
+      <span className="group-hover:translate-x-0.5 transition-transform duration-200">{label}</span>
     </button>
   );
 };

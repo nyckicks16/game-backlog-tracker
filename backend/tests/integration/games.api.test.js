@@ -9,28 +9,35 @@ import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import { generateAccessToken } from '../../utils/jwt.js';
 
+// Create mock objects first
+const mockPrismaUser = {
+  findUnique: jest.fn(),
+};
+
+const mockPrismaGame = {
+  create: jest.fn(),
+  findMany: jest.fn(),
+  findUnique: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  groupBy: jest.fn(),
+};
+
+const mockPrismaUserGame = {
+  create: jest.fn(),
+  findMany: jest.fn(),
+  findUnique: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  count: jest.fn(),
+};
+
 // Mock Prisma for controlled testing
 jest.unstable_mockModule('@prisma/client', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
-    user: {
-      findUnique: jest.fn(),
-    },
-    game: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      groupBy: jest.fn(),
-    },
-    userGame: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
-    },
+    user: mockPrismaUser,
+    game: mockPrismaGame,
+    userGame: mockPrismaUserGame,
   })),
 }));
 
@@ -104,10 +111,30 @@ describe('Games API Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Setup default mock responses
-    prisma.user.findUnique.mockResolvedValue(mockUser);
-    prisma.game.findUnique.mockResolvedValue(mockGame);
-    prisma.userGame.findUnique.mockResolvedValue(mockUserGame);
+    // Create proper mock functions for Prisma models
+    prisma.user = {
+      findUnique: jest.fn().mockResolvedValue(mockUser),
+      findFirst: jest.fn().mockResolvedValue(mockUser),
+      create: jest.fn().mockResolvedValue(mockUser),
+      update: jest.fn().mockResolvedValue(mockUser)
+    };
+
+    prisma.game = {
+      findFirst: jest.fn().mockResolvedValue(mockGame),
+      findUnique: jest.fn().mockResolvedValue(mockGame),
+      create: jest.fn().mockResolvedValue(mockGame),
+      update: jest.fn().mockResolvedValue(mockGame)
+    };
+
+    prisma.userGame = {
+      findFirst: jest.fn().mockResolvedValue(mockUserGame),
+      findUnique: jest.fn().mockResolvedValue(mockUserGame),
+      findMany: jest.fn().mockResolvedValue([mockUserGame]),
+      create: jest.fn().mockResolvedValue(mockUserGame),
+      update: jest.fn().mockResolvedValue(mockUserGame),
+      delete: jest.fn().mockResolvedValue(mockUserGame),
+      count: jest.fn().mockResolvedValue(1)
+    };
   });
 
   describe('POST /api/games', () => {

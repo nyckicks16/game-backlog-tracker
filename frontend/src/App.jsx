@@ -11,14 +11,20 @@ import Dashboard from './pages/Dashboard';
 import Library from './pages/Library';
 import ProfilePage from './pages/ProfilePage';
 import OAuthCallback from './components/auth/OAuthCallback';
+import { AnnouncerProvider, SkipLink } from './components/ui/Accessibility';
 import './App.css'
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-slate-900">
-          <Navigation />
+      <AnnouncerProvider>
+        <Router>
+          <div className="min-h-screen bg-slate-900">
+            {/* Skip Links for Accessibility */}
+            <SkipLink href="#main-content">Skip to main content</SkipLink>
+            <SkipLink href="#navigation">Skip to navigation</SkipLink>
+            
+            <Navigation />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
@@ -75,7 +81,7 @@ function App() {
                     <p className="text-slate-400 mb-8">Page not found</p>
                     <a 
                       href="/" 
-                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-50 bg-sky-700 hover:bg-sky-800 rounded-lg transition-colors"
                     >
                       ← Go home
                     </a>
@@ -93,11 +99,48 @@ function App() {
                 background: '#1e293b',
                 color: '#f1f5f9',
                 border: '1px solid #334155',
+                borderRadius: '12px',
+                padding: '16px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              },
+              success: {
+                style: {
+                  background: '#1e293b',
+                  color: '#f1f5f9',
+                  border: '1px solid #22c55e',
+                },
+                iconTheme: {
+                  primary: '#22c55e',
+                  secondary: '#1e293b',
+                },
+              },
+              error: {
+                style: {
+                  background: '#1e293b',
+                  color: '#f1f5f9',
+                  border: '1px solid #ef4444',
+                },
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: '#1e293b',
+                },
+              },
+              loading: {
+                style: {
+                  background: '#1e293b',
+                  color: '#f1f5f9',
+                  border: '1px solid #0ea5e9',
+                },
+                iconTheme: {
+                  primary: '#0ea5e9',
+                  secondary: '#1e293b',
+                },
               },
             }}
           />
         </div>
       </Router>
+      </AnnouncerProvider>
     </AuthProvider>
   );
 }

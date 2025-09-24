@@ -69,7 +69,7 @@ const Library = () => {
             <p className="text-slate-400 mb-8">
               Start building your game collection by adding your first game. Track what you want to play, what you're currently playing, and what you've completed!
             </p>
-            <button className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 focus:ring-offset-slate-800 transition-all duration-200 transform hover:scale-105">
+            <button className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-slate-50 bg-sky-700 hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 focus:ring-offset-slate-800 transition-all duration-200 transform hover:scale-105">
               <span className="text-xl mr-2">➕</span>
               Add Your First Game
             </button>

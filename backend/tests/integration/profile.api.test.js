@@ -73,9 +73,19 @@ describe('Profile API Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Setup default mock responses
-    mockPrismaUser.findUnique.mockResolvedValue(mockUser);
-    mockPrismaUser.update.mockResolvedValue(mockUser);
+    // Create proper mock functions for Prisma models
+    prisma.user = {
+      findUnique: jest.fn().mockResolvedValue(mockUser),
+      findFirst: jest.fn().mockResolvedValue(mockUser),
+      create: jest.fn().mockResolvedValue(mockUser),
+      update: jest.fn().mockResolvedValue(mockUser),
+      delete: jest.fn().mockResolvedValue(mockUser)
+    };
+
+    prisma.userGame = {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0)
+    };
   });
 
   describe('GET /api/profile', () => {

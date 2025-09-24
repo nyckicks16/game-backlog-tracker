@@ -36,7 +36,7 @@ const SQLiteStore = ConnectSQLite3(session);
 // Rate limiting for authentication endpoints
 const authLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 requests per minute per IP
+  max: process.env.NODE_ENV === 'development' ? 50 : 5, // 50 requests per minute in dev, 5 in production
   message: {
     error: 'RATE_LIMIT_EXCEEDED',
     message: 'Too many authentication attempts, please try again later',
@@ -46,11 +46,16 @@ const authLimiter = rateLimit({
     // Skip rate limiting for successful authentication status checks
     return req.path === '/auth/status' && req.method === 'GET';
   },
-  onLimitReached: (req) => {
+  handler: (req, res) => {
     logRateLimitExceeded('auth_endpoints', { 
       path: req.path,
       method: req.method 
     }, req);
+    res.status(429).json({
+      error: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many authentication attempts, please try again later',
+      status: 429,
+    });
   },
 });
 
@@ -103,12 +108,22 @@ app.use(passport.session());
 
 // Basic logging middleware
 app.use((req, res, next) => {
-  // Redact sensitive headers from logs
-  const safeHeaders = { ...req.headers };
-  if (safeHeaders.authorization) safeHeaders.authorization = '[REDACTED]';
-  if (safeHeaders.cookie) safeHeaders.cookie = '[REDACTED]';
+  // Enhanced logging for auth-related requests
+  const isAuthRequest = req.path.startsWith('/auth');
   
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (isAuthRequest) {
+    const safeHeaders = { ...req.headers };
+    if (safeHeaders.authorization) safeHeaders.authorization = safeHeaders.authorization.substring(0, 20) + '...';
+    if (safeHeaders.cookie) safeHeaders.cookie = '[REDACTED]';
+    
+    console.log(`🔐 ${new Date().toISOString()} - ${req.method} ${req.path}`, {
+      hasAuth: !!req.headers.authorization,
+      hasCookies: !!req.headers.cookie,
+      userAgent: req.headers['user-agent']?.substring(0, 50) + '...'
+    });
+  } else {
+    console.log(`📡 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  }
   next();
 });
 

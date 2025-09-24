@@ -123,7 +123,8 @@ export const displaySecurityConfig = () => {
   console.log(`   Database: ${process.env.DATABASE_URL ? 'Configured' : 'Not configured'}`);
   console.log(`   Google OAuth: ${process.env.GOOGLE_CLIENT_ID ? 'Enabled' : 'Disabled'}`);
   console.log(`   HTTPS Cookies: ${process.env.NODE_ENV === 'production' ? 'Enabled' : 'Disabled (dev)'}`);
-  console.log(`   Rate Limiting: Enabled (5 req/min auth, 100 req/15min general)`);
+  const authRateLimit = process.env.NODE_ENV === 'development' ? 50 : 5;
+  console.log(`   Rate Limiting: Enabled (${authRateLimit} req/min auth, 100 req/15min general)`);
   console.log(`   Security Headers: Enabled (Helmet.js)`);
   console.log(`   CORS: ${process.env.FRONTEND_URL || 'localhost:5173'}`);
 };

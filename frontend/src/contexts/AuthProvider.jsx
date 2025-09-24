@@ -2,7 +2,26 @@
  * Authentication Context Provider
  * User Story #7: Frontend Authentication UI Components
  * 
- * Manages authentication state and provides authentication methods
+ * Manages authentication state and provides a  /**
+   * Initiate Google OAuth login
+   */
+  const login = (returnTo = null) => {
+    // Re-enable auth for login attempts
+    setAuthDisabled(false);
+    setIsInitialized(false);
+    
+    // Store the current URL or provided returnTo URL for redirect after login
+    const returnUrl = returnTo || window.location.pathname + window.location.search;
+    sessionStorage.setItem('auth_return_url', returnUrl);
+    
+    console.log('🔓 Re-enabling auth for login attempt...');
+    
+    // Redirect to backend Google OAuth endpoint
+    window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`;
+  };
+
+/**
+ * Authentication Provider - Provides authentication state and methods
  * to the entire application via React Context.
  */
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -27,6 +46,9 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [accessToken, setAccessToken] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [authDisabled, setAuthDisabled] = useState(false);
 
   /**
    * Set up axios interceptors for token management
@@ -49,14 +71,19 @@ export const AuthProvider = ({ children }) => {
       async (error) => {
         const originalRequest = error.config;
 
-        // If access token expired, try to refresh
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // If access token expired, try to refresh (but not for auth endpoints that shouldn't be refreshed)
+        const skipRefreshUrls = ['/auth/logout', '/auth/refresh', '/auth/login', '/auth/google'];
+        const shouldSkipRefresh = skipRefreshUrls.some(url => originalRequest.url?.includes(url));
+        
+        if (error.response?.status === 401 && !originalRequest._retry && !shouldSkipRefresh) {
+          console.log('🔄 Token expired, attempting refresh for:', originalRequest.url);
           originalRequest._retry = true;
 
           try {
             const response = await axios.post('/auth/refresh');
             const newAccessToken = response.data.accessToken;
             
+            console.log('✅ Token refresh successful');
             setAccessToken(newAccessToken);
             setUser(response.data.user);
             
@@ -65,8 +92,18 @@ export const AuthProvider = ({ children }) => {
             return axios(originalRequest);
           } catch (refreshError) {
             // Refresh failed, user needs to log in again
-            console.error('Token refresh failed:', refreshError);
-            logout();
+            console.error('❌ Token refresh failed:', refreshError.response?.status, refreshError.response?.data);
+            
+            // Clear tokens immediately to prevent further refresh attempts
+            setAccessToken(null);
+            setUser(null);
+            setAuthDisabled(true); // Disable further auth attempts
+            
+            // Prevent infinite loops by checking if we're already logged out or logging out
+            if (user !== null && !isLoggingOut) {
+              console.log('🚪 Token refresh failed, logging out...');
+              logout();
+            }
             return Promise.reject(refreshError);
           }
         }
@@ -86,26 +123,44 @@ export const AuthProvider = ({ children }) => {
    * Initialize authentication state on app load
    */
   useEffect(() => {
-    initializeAuth();
-  }, []);
+    if (!isInitialized && !isLoggingOut) {
+      console.log('🚀 AuthProvider useEffect triggered - initializing auth');
+      setIsInitialized(true);
+      initializeAuth();
+    } else if (isLoggingOut) {
+      console.log('🚪 Logout in progress, skipping auth initialization...');
+    } else {
+      console.log('⏭️ AuthProvider already initialized, skipping...');
+    }
+  }, [isInitialized, isLoggingOut]);
 
   /**
    * Initialize authentication by checking for existing session
    */
   const initializeAuth = async () => {
+    // Don't initialize if we're in the middle of logging out or auth is disabled
+    if (isLoggingOut || authDisabled) {
+      console.log('🚪 Auth disabled or logout in progress, skipping initialization');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      
+      console.log('🔍 Initializing authentication...');
       
       // Try to get current user (will use refresh token if available)
       const response = await axios.get('/auth/me');
       
       if (response.data.success) {
+        console.log('✅ Found existing authentication session:', response.data.user.email);
         setUser(response.data.user);
         setAccessToken(response.data.accessToken);
       }
     } catch (error) {
       // No existing session or refresh token expired
-      console.log('No existing authentication session');
+      console.log('❌ No existing authentication session:', error.response?.status);
     } finally {
       setLoading(false);
     }
@@ -161,32 +216,75 @@ export const AuthProvider = ({ children }) => {
    * Logout user and clear session
    */
   const logout = async () => {
+    if (isLoggingOut) {
+      console.log('🔄 Logout already in progress, skipping...');
+      return;
+    }
+
     try {
+      console.log('🚪 Starting logout process...');
+      setIsLoggingOut(true);
       setLoading(true);
       
-      // Call backend logout endpoint
+      // Call backend logout endpoint first
+      console.log('🔍 Current access token:', accessToken ? 'Present' : 'Missing');
+      console.log('🔍 Current user:', user ? user.email : 'None');
+      
       if (accessToken) {
-        await axios.post('/auth/logout', {}, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
+        try {
+          console.log('📡 Calling backend logout endpoint with token...');
+          const response = await axios.post('/auth/logout', {}, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          console.log('✅ Backend logout successful:', response.data);
+        } catch (error) {
+          console.warn('❌ Backend logout failed:', error.response?.data || error.message);
+          console.warn('❌ Error status:', error.response?.status);
+        }
+      } else {
+        console.log('⚠️ No access token found, trying logout without token...');
+        try {
+          const response = await axios.post('/auth/logout');
+          console.log('✅ Backend logout successful (no token):', response.data);
+        } catch (error) {
+          console.warn('❌ Backend logout failed (no token):', error.response?.data || error.message);
+        }
       }
       
       // Clear local state
+      console.log('🧹 Clearing local authentication state...');
       setUser(null);
       setAccessToken(null);
+      setAuthDisabled(true); // Disable further auth attempts
+      
+      // Clear all possible cached authentication data
+      sessionStorage.clear();
+      localStorage.removeItem('auth_return_url');
       
       // Show logout toast
       toast.success('You have been logged out successfully');
       
-      // Redirect to home page
-      window.location.href = '/';
+      console.log('🔄 Redirecting to home page...');
+      
+      // Force a complete page reload to clear all state and redirect to home
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
+      
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout error:', error);
       // Clear state anyway
       setUser(null);
       setAccessToken(null);
+      sessionStorage.clear();
+      localStorage.removeItem('auth_return_url');
+      toast.success('You have been logged out successfully');
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
     } finally {
       setLoading(false);
+      setIsLoggingOut(false);
     }
   };
 

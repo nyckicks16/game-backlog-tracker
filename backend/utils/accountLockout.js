@@ -114,7 +114,7 @@ export const checkAccountLockStatus = async (email) => {
       };
     }
 
-    const isLocked = user.lockedUntil && new Date(user.lockedUntil) > new Date();
+    const isLocked = !!(user.lockedUntil && new Date(user.lockedUntil) > new Date());
     const lockTimeRemaining = isLocked 
       ? Math.ceil((new Date(user.lockedUntil) - new Date()) / 1000 / 60) 
       : 0;

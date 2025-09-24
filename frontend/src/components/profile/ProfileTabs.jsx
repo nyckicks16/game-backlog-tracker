@@ -44,7 +44,7 @@ const ProfileTabs = ({ activeTab, onTabChange }) => {
                   onClick={() => onTabChange(tab.id)}
                   className={`flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     isActive
-                      ? 'bg-sky-600 text-white'
+                      ? 'bg-sky-700 text-slate-50'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
                   }`}
                 >
@@ -71,12 +71,12 @@ const ProfileTabs = ({ activeTab, onTabChange }) => {
                     onClick={() => onTabChange(tab.id)}
                     className={`w-full text-left group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors ${
                       isActive
-                        ? 'bg-sky-600 text-white'
+                        ? 'bg-sky-700 text-slate-50'
                         : 'text-slate-300 hover:text-white hover:bg-slate-700'
                     }`}
                   >
                     <Icon className={`flex-shrink-0 h-5 w-5 mr-3 ${
-                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'
+                      isActive ? 'text-slate-50' : 'text-slate-400 group-hover:text-white'
                     }`} />
                     
                     <div className="flex-1 min-w-0">

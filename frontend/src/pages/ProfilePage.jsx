@@ -179,7 +179,7 @@ const ProfilePage = () => {
           <p className="text-slate-400 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            className="bg-sky-700 hover:bg-sky-800 text-slate-50 px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Retry
           </button>

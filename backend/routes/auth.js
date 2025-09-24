@@ -1,6 +1,6 @@
 import express from 'express';
 import passport from '../config/passport.js';
-import { generateTokenPair } from '../utils/jwt.js';
+import { generateTokenPair, verifyToken, extractTokenFromHeader } from '../utils/jwt.js';
 import { blacklistUserTokens } from '../utils/tokenBlacklist.js';
 import { resetFailedAttempts } from '../utils/accountLockout.js';
 import { requireAuth, requireRefreshToken } from '../middleware/auth.js';
@@ -94,6 +94,38 @@ router.get('/user', requireAuth, (req, res) => {
 });
 
 /**
+ * GET /auth/me
+ * Get current authenticated user profile (alias for /auth/user)
+ * This endpoint is used by the frontend for consistency
+ */
+router.get('/me', requireAuth, (req, res) => {
+  try {
+    res.json({
+      success: true,
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        username: req.user.username,
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        profilePicture: req.user.profilePicture,
+        provider: req.user.provider,
+        lastLogin: req.user.lastLogin,
+        createdAt: req.user.createdAt,
+      },
+      accessToken: req.user.accessToken // Include access token if available
+    });
+  } catch (error) {
+    console.error('Get user profile error:', error);
+    res.status(500).json({
+      error: 'PROFILE_ERROR',
+      message: 'Failed to retrieve user profile',
+      status: 500,
+    });
+  }
+});
+
+/**
  * GET /auth/status
  * Check authentication status
  */
@@ -165,37 +197,93 @@ router.post('/refresh', requireRefreshToken, async (req, res) => {
 /**
  * POST /auth/logout
  * Logout user and invalidate session/tokens
+ * Works with or without authentication for flexibility
  */
-router.post('/logout', requireAuth, async (req, res) => {
+router.post('/logout', async (req, res) => {
   try {
-    // Blacklist all user tokens and clear from database
-    await blacklistUserTokens(req.user.id, 'User logout');
+    console.log('🚪 Logout initiated');
+    console.log('🍪 Cookies before logout:', req.cookies);
+    console.log('📱 Session ID before logout:', req.sessionID);
+    
+    // Try to get user from JWT token first, then from session
+    let user = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      try {
+        const token = extractTokenFromHeader(authHeader);
+        if (token) {
+          const decoded = verifyToken(token);
+          user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+        }
+      } catch (error) {
+        console.log('JWT token invalid, checking session...');
+      }
+    }
+    
+    // Fallback to session user
+    if (!user && req.isAuthenticated && req.isAuthenticated()) {
+      user = req.user;
+    }
+    
+    if (user) {
+      console.log('👤 Logging out user:', user.email);
+      // Blacklist all user tokens and clear from database
+      await blacklistUserTokens(user.id, 'User logout');
+    } else {
+      console.log('👻 Anonymous logout - clearing session only');
+    }
 
-    // Clear refresh token cookie
+    // Clear refresh token cookie with exact same options as when it was set
     res.clearCookie('refreshToken', { 
       path: '/auth/refresh',
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     });
 
+    // Clear all possible session cookies
+    const sessionCookieNames = ['connect.sid', 'session', 'sess'];
+    sessionCookieNames.forEach(cookieName => {
+      res.clearCookie(cookieName, {
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      });
+    });
+
+    console.log('🧹 Clearing Passport session...');
     // Logout from session if using session auth
     if (req.logout) {
-      req.logout((err) => {
-        if (err) {
-          console.error('Session logout error:', err);
-        }
+      await new Promise((resolve) => {
+        req.logout((err) => {
+          if (err) {
+            console.error('❌ Session logout error:', err);
+          } else {
+            console.log('✅ Passport logout successful');
+          }
+          resolve();
+        });
       });
     }
 
+    console.log('🗑️ Destroying Express session...');
     // Clear session
     if (req.session) {
-      req.session.destroy((err) => {
-        if (err) {
-          console.error('Session destroy error:', err);
-        }
+      await new Promise((resolve) => {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('❌ Session destroy error:', err);
+          } else {
+            console.log('✅ Session destroy successful');
+          }
+          resolve();
+        });
       });
     }
 
+    console.log('✅ Logout completed successfully');
+    
     res.json({
       success: true,
       message: 'Logged out successfully',

@@ -68,7 +68,7 @@ const Login = () => {
         )}
 
         {/* Login Options */}
-        <div className="space-y-4">
+        <div className="space-y-4 flex flex-col items-center">
           <GoogleLoginButton />
           
           {/* Additional login methods can be added here */}

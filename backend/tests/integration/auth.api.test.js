@@ -29,8 +29,11 @@ jest.unstable_mockModule('@prisma/client', () => ({
 
 // Mock token blacklist
 jest.unstable_mockModule('../../utils/tokenBlacklist.js', () => ({
-  addToBlacklist: jest.fn(),
+  blacklistToken: jest.fn(),
   isTokenBlacklisted: jest.fn().mockResolvedValue(false),
+  blacklistUserTokens: jest.fn(),
+  cleanupExpiredTokens: jest.fn(),
+  adminRevokeUserTokens: jest.fn(),
 }));
 
 // Mock email service
@@ -85,9 +88,39 @@ describe('Authentication API Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Setup default mock responses
-    prisma.user.findUnique.mockResolvedValue(mockUser);
-    prisma.refreshToken.findUnique.mockResolvedValue(mockRefreshToken);
+    // Create proper mock functions for Prisma models
+    prisma.user = {
+      findUnique: jest.fn().mockResolvedValue(mockUser),
+      findFirst: jest.fn().mockResolvedValue(mockUser),
+      create: jest.fn().mockResolvedValue(mockUser),
+      update: jest.fn().mockResolvedValue(mockUser),
+      delete: jest.fn().mockResolvedValue(mockUser)
+    };
+
+    prisma.refreshToken = {
+      findUnique: jest.fn().mockResolvedValue(mockRefreshToken),
+      findFirst: jest.fn().mockResolvedValue(mockRefreshToken),
+      create: jest.fn().mockResolvedValue(mockRefreshToken),
+      update: jest.fn().mockResolvedValue(mockRefreshToken),
+      delete: jest.fn().mockResolvedValue(mockRefreshToken),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 })
+    };
+
+    prisma.session = {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'session-id' }),
+      update: jest.fn().mockResolvedValue({ id: 'session-id' }),
+      delete: jest.fn().mockResolvedValue({ id: 'session-id' }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 })
+    };
+
+    prisma.passwordReset = {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'reset-id' }),
+      update: jest.fn().mockResolvedValue({ id: 'reset-id' }),
+      delete: jest.fn().mockResolvedValue({ id: 'reset-id' }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 })
+    };
   });
 
   describe('POST /api/auth/register', () => {
