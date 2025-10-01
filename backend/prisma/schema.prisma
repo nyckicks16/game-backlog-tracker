@@ -37,6 +37,9 @@ model User {
   failedLoginAttempts Int      @default(0)
   lockedUntil         DateTime?
   
+  // Relations
+  games        Game[]   // User's game library
+  
   // Timestamps
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -55,4 +58,37 @@ model TokenBlacklist {
   createdAt DateTime @default(now())
 
   @@map("token_blacklist")
+}
+
+// Game Library Model (User Story #14)
+model Game {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // IGDB Data
+  igdbId      Int
+  name        String
+  summary     String?
+  coverUrl    String?
+  releaseDate DateTime?
+  platforms   String?  // JSON array of platforms
+  genres      String?  // JSON array of genres
+  developer   String?
+  publisher   String?
+  rating      Float?   // IGDB rating
+  
+  // User Data
+  status      String   @default("wishlist") // wishlist, playing, completed, on_hold
+  userRating  Float?   // User's personal rating (1-5)
+  notes       String?  // User's personal notes
+  progress    String?  // Playing progress notes
+  
+  // Timestamps
+  addedAt     DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@unique([userId, igdbId]) // Prevent duplicate games per user
+  @@map("games")
 }

@@ -31,6 +31,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.16.2",
+    "axios": "^1.12.2",
     "connect-sqlite3": "^0.9.16",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

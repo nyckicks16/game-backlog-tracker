@@ -1,5 +1,5 @@
 /**
- * Games API Routes (User Story #1)
+ * Games API Routes (User Story #14)
  * Handles game search, library management, and statistics
  */
 import express from 'express';
@@ -7,6 +7,7 @@ import { body, query, validationResult } from 'express-validator';
 import { prisma } from '../db/database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
+import { searchGames, getGameDetails, getPopularGames } from '../services/igdb.js';
 
 const router = express.Router();
 
@@ -51,40 +52,152 @@ router.get('/search',
 
       const { q, limit = 10, offset = 0 } = req.query;
 
-      // Mock IGDB API response for testing
-      const mockGames = [
-        {
-          id: 1,
-          name: `${q} Game 1`,
-          cover: { url: 'https://example.com/cover1.jpg' },
-          summary: `This is a test game matching "${q}"`,
-          first_release_date: Date.now() / 1000,
-          platforms: [{ name: 'PC' }],
-          genres: [{ name: 'Action' }]
-        },
-        {
-          id: 2,
-          name: `${q} Game 2`,
-          cover: { url: 'https://example.com/cover2.jpg' },
-          summary: `Another test game matching "${q}"`,
-          first_release_date: Date.now() / 1000,
-          platforms: [{ name: 'PlayStation' }],
-          genres: [{ name: 'RPG' }]
-        }
-      ];
-
-      // Simulate pagination
-      const paginatedGames = mockGames.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+      // Use real IGDB API service
+      const games = await searchGames(q, parseInt(limit), parseInt(offset));
 
       res.json({
-        games: paginatedGames,
-        total: mockGames.length,
+        games,
+        total: games.length, // Note: IGDB doesn't provide total count easily
         limit: parseInt(limit),
-        offset: parseInt(offset)
+        offset: parseInt(offset),
+        query: q
       });
     } catch (error) {
       console.error('Game search error:', error);
-      res.status(500).json({ error: 'Failed to search games' });
+      
+      // Handle specific error types
+      if (error.message.includes('authentication failed')) {
+        return res.status(502).json({ 
+          error: 'Game database service unavailable',
+          message: 'Please try again later.',
+          retryable: true
+        });
+      }
+      
+      if (error.message.includes('rate limit exceeded')) {
+        return res.status(429).json({ 
+          error: 'Too many requests',
+          message: 'Please wait a moment before searching again.',
+          retryable: true
+        });
+      }
+      
+      if (error.message.includes('unavailable')) {
+        return res.status(503).json({ 
+          error: 'Game database temporarily unavailable',
+          message: 'Please try again in a few minutes.',
+          retryable: true
+        });
+      }
+      
+      res.status(500).json({ 
+        error: 'Game search failed',
+        message: 'An unexpected error occurred. Please try again.',
+        retryable: true
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/games/:id/details
+ * Get detailed information about a specific game from IGDB
+ */
+router.get('/:id/details',
+  authenticateToken,
+  searchRateLimit,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(id)) {
+        return res.status(400).json({ 
+          error: 'Valid game ID is required'
+        });
+      }
+
+      // Get detailed game information from IGDB
+      const gameDetails = await getGameDetails(parseInt(id));
+
+      // Check if user already has this game in their library
+      const userGame = await prisma.game.findFirst({
+        where: {
+          userId: req.user.id,
+          igdbId: parseInt(id)
+        }
+      });
+
+      res.json({
+        ...gameDetails,
+        inLibrary: !!userGame,
+        userStatus: userGame?.status || null,
+        userRating: userGame?.userRating || null,
+        userNotes: userGame?.notes || null
+      });
+    } catch (error) {
+      console.error('Game details error:', error);
+      
+      if (error.message.includes('Game not found')) {
+        return res.status(404).json({ 
+          error: 'Game not found',
+          message: 'The requested game could not be found.'
+        });
+      }
+      
+      if (error.message.includes('authentication failed')) {
+        return res.status(502).json({ 
+          error: 'Game database service unavailable',
+          message: 'Please try again later.',
+          retryable: true
+        });
+      }
+      
+      res.status(500).json({ 
+        error: 'Failed to get game details',
+        message: 'An unexpected error occurred. Please try again.',
+        retryable: true
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/games/popular
+ * Get popular/trending games from IGDB
+ */
+router.get('/popular',
+  authenticateToken,
+  searchRateLimit,
+  [
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 50 })
+      .withMessage('Limit must be between 1 and 50')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          error: 'Validation failed',
+          details: errors.array()
+        });
+      }
+
+      const { limit = 20 } = req.query;
+      const games = await getPopularGames(parseInt(limit));
+
+      res.json({
+        games,
+        limit: parseInt(limit)
+      });
+    } catch (error) {
+      console.error('Popular games error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get popular games',
+        message: 'An unexpected error occurred. Please try again.',
+        retryable: true
+      });
     }
   }
 );
@@ -106,16 +219,16 @@ router.post('/',
       .withMessage('Game name must not exceed 255 characters'),
     body('status')
       .optional()
-      .isIn(['want_to_play', 'playing', 'completed', 'dropped'])
+      .isIn(['wishlist', 'playing', 'completed', 'on_hold'])
       .withMessage('Invalid game status'),
-    body('rating')
+    body('userRating')
       .optional()
-      .isFloat({ min: 0, max: 5 })
-      .withMessage('Rating must be between 0 and 5'),
+      .isFloat({ min: 1, max: 5 })
+      .withMessage('User rating must be between 1 and 5'),
     body('notes')
       .optional()
-      .isLength({ max: 1000 })
-      .withMessage('Notes must not exceed 1000 characters')
+      .isLength({ max: 2000 })
+      .withMessage('Notes must not exceed 2000 characters')
   ],
   async (req, res) => {
     try {
@@ -127,7 +240,21 @@ router.post('/',
         });
       }
 
-      const { igdbId, name, status = 'want_to_play', rating, notes, coverUrl, releaseDate, platforms, genres } = req.body;
+      const { 
+        igdbId, 
+        name, 
+        summary,
+        status = 'wishlist', 
+        userRating, 
+        notes, 
+        coverUrl, 
+        releaseDate, 
+        platforms, 
+        genres,
+        developer,
+        publisher,
+        rating
+      } = req.body;
       const userId = req.user.id;
 
       // Check if game already exists in user's library
@@ -139,7 +266,11 @@ router.post('/',
       });
 
       if (existingGame) {
-        return res.status(409).json({ error: 'Game already in library' });
+        return res.status(409).json({ 
+          error: 'Game already in library',
+          message: 'This game is already in your library.',
+          game: existingGame
+        });
       }
 
       const game = await prisma.game.create({
@@ -147,13 +278,17 @@ router.post('/',
           userId,
           igdbId: parseInt(igdbId),
           name,
+          summary: summary || null,
           status,
-          rating: rating ? parseFloat(rating) : null,
-          notes,
-          coverUrl,
+          userRating: userRating ? parseFloat(userRating) : null,
+          notes: notes || null,
+          coverUrl: coverUrl || null,
           releaseDate: releaseDate ? new Date(releaseDate) : null,
           platforms: platforms ? JSON.stringify(platforms) : null,
-          genres: genres ? JSON.stringify(genres) : null
+          genres: genres ? JSON.stringify(genres) : null,
+          developer: developer || null,
+          publisher: publisher || null,
+          rating: rating ? parseFloat(rating) : null
         }
       });
 
@@ -163,14 +298,18 @@ router.post('/',
           id: game.id,
           igdbId: game.igdbId,
           name: game.name,
+          summary: game.summary,
           status: game.status,
-          rating: game.rating,
+          userRating: game.userRating,
           notes: game.notes,
           coverUrl: game.coverUrl,
           releaseDate: game.releaseDate,
           platforms: game.platforms ? JSON.parse(game.platforms) : null,
           genres: game.genres ? JSON.parse(game.genres) : null,
-          createdAt: game.createdAt,
+          developer: game.developer,
+          publisher: game.publisher,
+          rating: game.rating,
+          addedAt: game.addedAt,
           updatedAt: game.updatedAt
         }
       });
@@ -259,7 +398,7 @@ router.get('/',
       .withMessage('Offset must be a non-negative integer'),
     query('sort')
       .optional()
-      .isIn(['name', 'createdAt', 'updatedAt', 'rating', 'releaseDate'])
+      .isIn(['name', 'addedAt', 'updatedAt', 'userRating', 'releaseDate'])
       .withMessage('Invalid sort field'),
     query('order')
       .optional()
@@ -268,8 +407,13 @@ router.get('/',
   ],
   async (req, res) => {
     try {
+      console.log('🎮 GET /api/games - Starting request');
+      console.log('- User ID:', req.user?.id);
+      console.log('- Query params:', req.query);
+      
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         return res.status(400).json({ 
           error: 'Validation failed',
           details: errors.array()
@@ -280,7 +424,7 @@ router.get('/',
         status, 
         limit = 20, 
         offset = 0, 
-        sort = 'createdAt', 
+        sort = 'addedAt', 
         order = 'desc' 
       } = req.query;
       const userId = req.user.id;
@@ -289,6 +433,8 @@ router.get('/',
       if (status) {
         where.status = status;
       }
+
+      console.log('🔍 Querying database with:', { where, limit, offset, sort, order });
 
       const games = await prisma.game.findMany({
         where,
@@ -299,22 +445,35 @@ router.get('/',
         }
       });
 
-      const total = await prisma.game.count({ where });
+      console.log('📊 Found games:', games.length);
 
-      const formattedGames = games.map(game => ({
-        id: game.id,
-        igdbId: game.igdbId,
-        name: game.name,
-        status: game.status,
-        rating: game.rating,
-        notes: game.notes,
-        coverUrl: game.coverUrl,
-        releaseDate: game.releaseDate,
-        platforms: game.platforms ? JSON.parse(game.platforms) : null,
-        genres: game.genres ? JSON.parse(game.genres) : null,
-        createdAt: game.createdAt,
-        updatedAt: game.updatedAt
-      }));
+      const total = await prisma.game.count({ where });
+      console.log('📊 Total count:', total);
+
+      const formattedGames = games.map(game => {
+        console.log('🎯 Formatting game:', game.id, game.name);
+        try {
+          return {
+            id: game.id,
+            igdbId: game.igdbId,
+            name: game.name,
+            status: game.status,
+            rating: game.userRating, // Use userRating from schema
+            notes: game.notes,
+            coverUrl: game.coverUrl,
+            releaseDate: game.releaseDate,
+            platforms: game.platforms ? JSON.parse(game.platforms) : null,
+            genres: game.genres ? JSON.parse(game.genres) : null,
+            createdAt: game.addedAt, // Use addedAt from schema
+            updatedAt: game.updatedAt
+          };
+        } catch (parseError) {
+          console.error('❌ JSON parse error for game:', game.id, parseError);
+          throw parseError;
+        }
+      });
+
+      console.log('✅ Successfully formatted all games');
 
       res.json({
         games: formattedGames,
@@ -323,7 +482,10 @@ router.get('/',
         offset: parseInt(offset)
       });
     } catch (error) {
-      console.error('Get games error:', error);
+      console.error('❌ Get games error:', error);
+      console.error('- Error name:', error.name);
+      console.error('- Error message:', error.message);
+      console.error('- Error stack:', error.stack);
       res.status(500).json({ error: 'Failed to fetch games' });
     }
   }

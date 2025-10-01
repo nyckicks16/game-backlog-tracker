@@ -100,6 +100,10 @@ router.get('/user', requireAuth, (req, res) => {
  */
 router.get('/me', requireAuth, (req, res) => {
   try {
+    // Generate a fresh access token for API usage
+    // This is needed because session auth doesn't include tokens
+    const tokens = generateTokenPair(req.user);
+    
     res.json({
       success: true,
       user: {
@@ -113,7 +117,7 @@ router.get('/me', requireAuth, (req, res) => {
         lastLogin: req.user.lastLogin,
         createdAt: req.user.createdAt,
       },
-      accessToken: req.user.accessToken // Include access token if available
+      accessToken: tokens.accessToken // Fresh token for API usage
     });
   } catch (error) {
     console.error('Get user profile error:', error);

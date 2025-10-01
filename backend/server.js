@@ -10,6 +10,7 @@ import passport from './config/passport.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import profileRoutes from './routes/profile.js';
+import gamesRoutes from './routes/games.js';
 import { connectDatabase, disconnectDatabase, prisma } from './db/database.js';
 import { initializeScheduledJobs, stopScheduledJobs } from './jobs/sessionJobs.js';
 import { validateEnvironmentSecurity, displaySecurityConfig } from './utils/environmentSecurity.js';
@@ -159,7 +160,9 @@ app.get('/api', (req, res) => {
     endpoints: {
       health: '/health',
       api: '/api',
-      auth: '/auth'
+      auth: '/auth',
+      profile: '/api/profile',
+      games: '/api/games'
     }
   });
 });
@@ -169,6 +172,9 @@ app.use('/auth', authLimiter, authSecurityHeaders, authRoutes);
 
 // Profile routes (protected by authentication middleware within routes)
 app.use('/api/profile', profileRoutes);
+
+// Games routes (protected by authentication middleware within routes)
+app.use('/api/games', gamesRoutes);
 
 // Admin routes (protected by authentication middleware within routes)
 app.use('/admin', adminRoutes);
